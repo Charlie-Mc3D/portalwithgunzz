@@ -8,7 +8,12 @@ signal health_changed(health_value)
 @onready var raycast = $Camera3D/RayCast3D
 
 # crouch handlers
+@export var crouch_anim_player: AnimationPlayer
+@export var crouch_shapecast: Node3D
+@export_range(5, 10, 0.1) 
+var crouch_speed : float = 4.0
 var _is_crouching: bool = false
+var _using_crouch: bool = false
 
 var health = 3
 
@@ -28,6 +33,8 @@ func _ready():
 	
 	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 	camera.current = true
+	# ensure collision check ignores player collision shape
+	crouch_shapecast.add_exception($".")
 	
 func _exit_tree() -> void:
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
@@ -123,7 +130,7 @@ func receive_damage():
 
 func _on_animation_player_animation_finished(anim_name):
 	if anim_name == "shoot":
-		anim_player.play("idle")
+		crouch_anim_player.play("idle")
 
 #debug physics code V1
 var mouse_sensitivity = 0.002
@@ -255,8 +262,19 @@ func clip_velocity(normal: Vector3, overbounce : float, delta : float) -> void:
 		self.velocity -= normal * adjust
 		
 func toggle_crouch():
-	if _is_crouching == true:
-		print("UNCROUCH")
-	elif _is_crouching == false:
-		print("CROUCH")
-	_is_crouching = !_is_crouching
+	if _is_crouching and !crouch_shapecast.is_colliding() and !_using_crouch:
+		#print("UNCROUCH")
+		# same as crouching, but the speed variable is * -1 to go backward. True makes it start from the end.
+		crouch_anim_player.play("Crouch", -1, -crouch_speed, true)
+	elif !_is_crouching and !_using_crouch:
+		#print("CROUCH")
+		crouch_anim_player.play("Crouch", -1, crouch_speed)
+
+func _on_crouch_animation_started(anim_name: StringName) -> void:
+	if anim_name == "Crouch":
+		_is_crouching = !_is_crouching
+		_using_crouch = true
+
+func _on_crouch_animation_finished(anim_name: StringName) -> void:
+	if anim_name == "Crouch":
+		_using_crouch = false
